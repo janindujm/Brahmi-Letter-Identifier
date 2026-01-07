@@ -25,7 +25,7 @@ with open(csv_file, 'w', newline='') as f:
     writer.writerow(header)
 
 # --------- Your labels ---------
-labels = ["ka", "ga"]  # list of your labels
+labels = ["ka", "ga", "ki" , "ha", "pa"]  # list of your labels
 
 # --------- Process images ---------
 for label in labels:

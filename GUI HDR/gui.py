@@ -64,13 +64,9 @@ b_clear.place(x=500, y=100)
 
 # ----------------- Capture Canvas -----------------
 def screen_capture():
-    #letter_label = t1.get().strip()
-    #if not letter_label:
-    #    messagebox.showerror("Error", "Please enter a Brahmi letter first!")
-    #    return
 
 
-    images_folder = os.path.join("captured_images", "ka")
+    images_folder = os.path.join("captured_images", "pa")
     os.makedirs(images_folder, exist_ok=True)
 
     #messagebox.showinfo("Info", "You have 3 seconds before capture. Draw your letter!")
@@ -87,14 +83,23 @@ def screen_capture():
     im.save(os.path.join(images_folder, f"{count}.png"))
     #messagebox.showinfo("Result", f"Image saved as {count}.png")
     clear_canvas()
+    
+def capture_with_space(event):
+    screen_capture()
 
 b1 = tk.Button(window, text="Capture Drawing", font=('Algerian', 15), bg="orange", fg="black", command=screen_capture)
 b1.place(x=500, y=50)
+# Bind Space key to capture
+window.bind("<space>", capture_with_space)
+window.focus_set()
+
+
 
 
 # ----------------- Live Prediction -----------------
 def prediction():
     model_path = os.path.join("model", "digit_recognizer")
+    print(model_path)
     if not os.path.exists(model_path):
         messagebox.showerror("Error", "Model not found! Train first.")
         return
@@ -121,7 +126,72 @@ def prediction():
     messagebox.showinfo("Prediction", f"Predicted Letter: {pred}")
     clear_canvas()
 
+# ----------------- Probability Output -----------------
+def show_probability():
+    model_path = os.path.join("model", "letter_prob_model.pkl")
+    scaler_path = os.path.join("model", "scaler.pkl")
+
+    if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+        print("Model or scaler not found!")
+        return
+
+    classifier = joblib.load(model_path)
+    scaler = joblib.load(scaler_path)
+
+    # Capture canvas
+    bbox = (66, 94, 560, 587)
+    im = ImageGrab.grab(bbox=bbox)
+    im.save("prob_img.png")
+
+    im_cv = cv2.imread("prob_img.png", cv2.IMREAD_GRAYSCALE)
+    im_cv = cv2.GaussianBlur(im_cv, (15, 15), 0)
+    roi = cv2.resize(im_cv, (28, 28), interpolation=cv2.INTER_AREA)
+
+    binary_pixels = np.where(roi > 100, 1, 0)
+    X_input = binary_pixels.flatten().tolist()
+
+    # SCALE input
+    X_input = scaler.transform([X_input])
+
+    # Predict probabilities
+    probs = classifier.predict_proba(X_input)[0]
+    classes = classifier.classes_
+
+    # Top 3 probabilities
+    top3_idx = np.argsort(probs)[-3:][::-1]
+
+    print("\n=== Top 3 Probabilities ===")
+    for idx in top3_idx:
+        print(f"Letter: {classes[idx]}  |  Probability: {probs[idx]*100:.2f}%")
+    print("===========================\n")
+
+    result_text = "Top 3 Predictions:\n\n"
+    for idx in top3_idx:
+        result_text += f"{classes[idx]}  :  {probs[idx]*100:.2f}%\n"
+    prob_label.config(text=result_text)
+
+
 b4 = tk.Button(window, text="Predict Letter", font=('Algerian', 15), bg="white", fg="red", command=prediction)
 b4.place(x=500, y=250)
+
+b_prob = tk.Button(
+    window,
+    text="Probability",
+    font=('Algerian', 15),
+    bg="lightblue",
+    fg="black",
+    command=show_probability
+)
+b_prob.place(x=500, y=300)
+
+# ----------------- Probability Display Label -----------------
+prob_label = tk.Label(
+    window,
+    text="Top 3 Predictions will appear here",
+    font=("Arial", 14),
+    fg="blue",
+    justify="left"
+)
+prob_label.place(x=500, y=350)
 
 window.mainloop()
